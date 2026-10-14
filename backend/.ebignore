@@ -1,0 +1,11 @@
+# Files NOT uploaded to AWS Elastic Beanstalk by `eb deploy` / `eb create`.
+# Secrets stay on your machine; set them as Elastic Beanstalk environment properties instead.
+node_modules/
+.env
+.env.cloudrun
+.env.aws
+cloudrun.env
+.gcloudignore
+.git
+*.log
+*.zip

@@ -17,11 +17,16 @@ function App() {
 
   // Read the backend server settings from frontend/.env.
   // Vite exposes frontend environment variables that start with VITE_.
+  // VITE_SERVER_REMOTE picks which backend to call:
+  //   Y   -> Google Cloud Run   (VITE_SERVER_URL_REMOTE)
+  //   AWS -> AWS Elastic Beanstalk (VITE_SERVER_URL_AWS)
+  //   N   -> local backend      (VITE_SERVER_URL_LOCAL)
   const serverRemote = import.meta.env.VITE_SERVER_REMOTE
-  const serverUrl =
-    serverRemote === 'Y'
-      ? import.meta.env.VITE_SERVER_URL_REMOTE
-      : import.meta.env.VITE_SERVER_URL_LOCAL
+  const serverUrls = {
+    Y: import.meta.env.VITE_SERVER_URL_REMOTE,
+    AWS: import.meta.env.VITE_SERVER_URL_AWS,
+  }
+  const serverUrl = serverUrls[serverRemote] ?? import.meta.env.VITE_SERVER_URL_LOCAL
 
   // backendStatus describes whether the frontend can reach the backend.
   // It is filled in by the /api/health fetch below.
@@ -31,7 +36,7 @@ function App() {
       ? { state: 'checking', text: 'Checking backend connection...' }
       : {
           state: 'error',
-          text: 'No backend URL set. Add VITE_SERVER_URL_REMOTE / VITE_SERVER_URL_LOCAL to frontend/.env.',
+          text: 'No backend URL set. Check VITE_SERVER_REMOTE and the matching VITE_SERVER_URL_* value in frontend/.env.',
         }
   )
 

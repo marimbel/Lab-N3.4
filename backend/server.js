@@ -6,8 +6,9 @@ import { GoogleGenAI } from '@google/genai';
 // Create the Express application. Express handles our backend routes.
 const app = express();
 
-// Use Cloud Run's PORT value when deployed, or the port value from backend/.env locally.
-// If neither is set, the backend runs on port 3001.
+// Use the PORT value the platform gives us when deployed
+// (Google Cloud Run sets 8080; AWS Elastic Beanstalk sets 8080 and puts nginx in front of it),
+// or the port value from backend/.env locally. If neither is set, the backend runs on port 3001.
 const port = process.env.PORT || 3001;
 
 // Read allowedOrigins from backend/.env as a comma-separated list.
@@ -43,9 +44,12 @@ app.get('/api/health', (request, response) => {
   response.json({
     status: 'ok',
     service: 'smart-speech-coach-backend',
-    // K_SERVICE is set automatically by Google Cloud Run, so the frontend
-    // can tell whether it is talking to the deployed service or a local server.
-    runningOn: process.env.K_SERVICE ? 'Google Cloud Run' : 'local',
+    // DEPLOY_PLATFORM is an environment variable we set ourselves on AWS Elastic Beanstalk
+    // (e.g. "AWS Elastic Beanstalk"). K_SERVICE is set automatically by Google Cloud Run.
+    // This lets the frontend show which deployment it is talking to.
+    runningOn:
+      process.env.DEPLOY_PLATFORM ||
+      (process.env.K_SERVICE ? 'Google Cloud Run' : 'local'),
     time: new Date().toISOString(),
   });
 });
