@@ -1,0 +1,10 @@
+# Files NOT uploaded to Google Cloud Run when running `gcloud run deploy --source .`
+# Secrets stay on your machine; Cloud Run gets them through --env-vars-file instead.
+.gcloudignore
+.git
+.gitignore
+node_modules/
+.env
+.env.cloudrun
+cloudrun.env
+*.log
