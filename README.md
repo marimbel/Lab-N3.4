@@ -30,6 +30,7 @@ The backend code itself barely changed. It already reads `process.env.PORT`, whi
 | File | Change | Why |
 |---|---|---|
 | `backend/Procfile` | **New.** `web: npm start` | Tells Elastic Beanstalk exactly how to start the app. |
+| `backend/.platform/nginx/conf.d/timeout.conf` | **New.** Raises nginx's proxy timeouts from 60 s to 180 s | Elastic Beanstalk puts nginx in front of Node. Gemini "thinking" models sometimes take over 60 s, and nginx then returned **504 Gateway Timeout** (the browser shows it as "Could not reach the backend" because nginx's error page has no CORS headers). Cloud Run's default request timeout is 5 minutes, so this never came up there. |
 | `backend/.ebignore` | **New.** Excludes `node_modules/`, `.env`, `.env.cloudrun`, `.env.aws` | Keeps secrets and local packages out of the upload. Elastic Beanstalk runs `npm install` on the server itself. |
 | `backend/.env.aws.example` | **New.** The environment properties to set on Elastic Beanstalk | Elastic Beanstalk reads config from environment properties instead of a `.env` file. |
 | `backend/server.js` | `/api/health` reports `runningOn` from a `DEPLOY_PLATFORM` property (falls back to Cloud Run / local detection) | Cloud Run sets `K_SERVICE` automatically, but Elastic Beanstalk has no equivalent, so we set `DEPLOY_PLATFORM=AWS Elastic Beanstalk` ourselves. The frontend then shows which cloud it's talking to. |
@@ -138,7 +139,7 @@ eb terminate smart-speech-coach-env   # DELETE the environment when finished so 
 
 ### 2.8 Deploy from the AWS Console (no EB CLI) — this is how we deployed
 1. Make a zip whose **root** contains `server.js`, `package.json`, `package-lock.json` and `Procfile`. Zip the files, not the `backend` folder, and leave out `node_modules` and `.env`.
-   - macOS / Linux: `cd backend && zip ../backend-eb.zip server.js package.json package-lock.json Procfile`
+   - macOS / Linux: `cd backend && zip -r ../backend-eb.zip server.js package.json package-lock.json Procfile .platform`
    - PowerShell: `cd backend; Compress-Archive -Path server.js,package.json,package-lock.json,Procfile -DestinationPath ..\backend-eb.zip`
 2. Console → **Elastic Beanstalk** → **Create application** → *Web server environment*.
 3. Platform: **Node.js** (Amazon Linux 2023). Application code: **Upload your code** → `backend-eb.zip`.
@@ -160,6 +161,8 @@ The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023
 |---|---|
 | Health "Severe", page shows **502 Bad Gateway** | The Node app crashed or isn't listening on `PORT`. Run `eb logs` and look at `web.stdout.log`. |
 | "Smart Speech Coach could not answer right now." and the logs show `404 ... models/gemini-2.5-flash is no longer available to new users` | Google retired that model for new API keys. We changed `geminiAskAnythingModel` to `gemini-3.8-flash` (environment property + all `.env` examples). |
+| Logs: `Model 'http://localhost:5173,...' not found` | The `geminiAskAnythingModel` and `allowedOrigins` values were swapped in the console. Fix the environment properties. |
+| Frontend: "Could not reach the backend", nginx `access.log` shows **504**, `error.log` shows `upstream timed out` | Gemini took > 60 s. Deploy a zip that includes `.platform/` (the timeout config above). |
 | `Gemini API key is not configured` | `GEMINI_API_KEY` property is missing (2.4). |
 | Frontend: "Cannot reach backend", CORS error in console | Add your frontend origin to `allowedOrigins` with `eb setenv`. |
 | Frontend on HTTPS can't reach backend | Mixed content: see the HTTP vs HTTPS note in 2.6. |
