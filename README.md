@@ -136,7 +136,7 @@ eb health                        # instance health
 eb terminate smart-speech-coach-env   # DELETE the environment when finished so it stops costing money
 ```
 
-### 2.8 Alternative: deploy from the AWS Console (no EB CLI)
+### 2.8 Deploy from the AWS Console (no EB CLI) — this is how we deployed
 1. Make a zip whose **root** contains `server.js`, `package.json`, `package-lock.json` and `Procfile`. Zip the files, not the `backend` folder, and leave out `node_modules` and `.env`.
    - macOS / Linux: `cd backend && zip ../backend-eb.zip server.js package.json package-lock.json Procfile`
    - PowerShell: `cd backend; Compress-Archive -Path server.js,package.json,package-lock.json,Procfile -DestinationPath ..\backend-eb.zip`
@@ -145,6 +145,15 @@ eb terminate smart-speech-coach-env   # DELETE the environment when finished so 
 4. Presets: **Single instance (free tier eligible)**.
 5. Service access: create or choose the **service role** and an **EC2 instance profile** (e.g. `aws-elasticbeanstalk-ec2-role`).
 6. Under *Environment properties* add the keys from section 2.4 → **Submit**, and wait for the health check to go green.
+
+**What actually happened when we did this:** our first attempt failed with *"Environment creation was cancelled because the instance profile could not be created ... The security token included in the request is invalid."* The console could not create the EC2 role automatically. We fixed it by creating the role ourselves first:
+
+1. **IAM → Roles → Create role** → trusted entity **AWS service**, use case **EC2**.
+2. Attach `AWSElasticBeanstalkWebTier`, `AWSElasticBeanstalkWorkerTier`, `AWSElasticBeanstalkMulticontainerDocker`.
+3. Name it `aws-elasticbeanstalk-ec2-role` → **Create role**.
+4. Back in Elastic Beanstalk → **Environments → Create environment**, and on *Configure service access* pick that role as the **EC2 instance profile**.
+
+The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023**. On Google Cloud Run (Lab N3.3) there was no equivalent step: `gcloud run deploy` set up everything it needed.
 
 ### 2.9 Troubleshooting
 | Symptom | Likely cause / fix |
@@ -159,12 +168,21 @@ eb terminate smart-speech-coach-env   # DELETE the environment when finished so 
 ### 2.10 Our deployment
 | | |
 |---|---|
-| AWS region | `us-west-2` |
-| Application / environment | `smart-speech-coach` / `smart-speech-coach-env` |
-| URL | `http://YOUR-EB-CNAME` |
-| Deployed by / date | |
+| Method | AWS Console upload of `backend-eb.zip` (section 2.8) |
+| AWS region | `us-east-2` (Ohio) |
+| Application / environment | `smart-speech-coach` / `Smart-speech-coach-env` |
+| Platform | Node.js 24 running on 64bit Amazon Linux 2023 (single instance, free-tier preset) |
+| Backend URL | `http://smart-speech-coach-env.eba-xxxxxxx.us-west-2.elasticbeanstalk.com` |
+| Health check | `http://smart-speech-coach-env.eba-xxxxxxx.us-west-2.elasticbeanstalk.com/api/health` → `"runningOn":"AWS Elastic Beanstalk"` |
+| Frontend | run locally (`npm run dev`, http://localhost:5173) with `VITE_SERVER_REMOTE=AWS` |
+| Deployed by / date | Marianna Belmares, 2026-10-15 |
 
----
+### 2.11 Demo steps (10/15 check)
+1. Show the environment in the Elastic Beanstalk console: Health **Ok**, Domain, Events log, **Configuration → Environment properties** (key hidden).
+2. Open `http://<domain>/api/health` → `"runningOn":"AWS Elastic Beanstalk"`.
+3. `cd frontend && npm run dev` → http://localhost:5173 shows **"Connected to backend (AWS Elastic Beanstalk)"** → ask a question and get a Gemini answer.
+4. Change `VITE_SERVER_REMOTE=Y` in `frontend/.env`, restart `npm run dev` → the same page now talks to the Cloud Run backend from Lab N3.3.
+5. Stop it: **Actions → Terminate environment** (or `eb terminate`). Refresh the domain to show it is gone.
 
 ## 3. Comparison: Google Cloud Run vs. AWS Elastic Beanstalk
 
@@ -183,6 +201,8 @@ eb terminate smart-speech-coach-env   # DELETE the environment when finished so 
 | Control | Less: no OS access | More: SSH into the instance, choose instance type, customize with `.ebextensions` / `.platform` hooks |
 | Logs | `gcloud run services logs read` / Cloud Logging | `eb logs` / CloudWatch (optional) |
 | Code changes needed | None (already used `PORT`) | Added `Procfile` and `.ebignore`, and set `DEPLOY_PLATFORM` |
+| Permissions setup | Enabling the APIs was enough; Cloud Run used the default service account | Needed a **service role** and an **EC2 instance profile** (IAM role). The console failed to create it for us, so we had to create it in IAM first |
+| Stopping | Delete the service (+ images in Artifact Registry); idle services already cost ~$0 | **Terminate** the environment; otherwise the EC2 instance keeps running and using credits |
 
 **Takeaways:**
 - Cloud Run was simpler and faster to deploy. It gave HTTPS automatically and costs nothing while idle, which suits a small, bursty API like this one.
