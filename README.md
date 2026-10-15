@@ -92,7 +92,7 @@ Elastic Beanstalk doesn't read `.env` files. Set each value as an environment pr
 ```
 eb setenv \
   GEMINI_API_KEY="your_gemini_api_key" \
-  geminiAskAnythingModel="gemini-2.5-flash" \
+  geminiAskAnythingModel="gemini-3.8-flash" \
   allowedOrigins="http://localhost:5173,http://127.0.0.1:5173" \
   DEPLOY_PLATFORM="AWS Elastic Beanstalk" \
   askAnythingPrompt="You are going to answer questions about Smart Speech Coach. Smart Speech Coach is a service that helps people practice speeches, improve delivery, organize ideas, reduce speaking anxiety, and get simple coaching feedback using Machine Learning. If the user asks about something unrelated, briefly steer them back to asking about Smart Speech Coach. Keep the answer to 1-3 sentences."
@@ -159,6 +159,7 @@ The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023
 | Symptom | Likely cause / fix |
 |---|---|
 | Health "Severe", page shows **502 Bad Gateway** | The Node app crashed or isn't listening on `PORT`. Run `eb logs` and look at `web.stdout.log`. |
+| "Smart Speech Coach could not answer right now." and the logs show `404 ... models/gemini-2.5-flash is no longer available to new users` | Google retired that model for new API keys. We changed `geminiAskAnythingModel` to `gemini-3.8-flash` (environment property + all `.env` examples). |
 | `Gemini API key is not configured` | `GEMINI_API_KEY` property is missing (2.4). |
 | Frontend: "Cannot reach backend", CORS error in console | Add your frontend origin to `allowedOrigins` with `eb setenv`. |
 | Frontend on HTTPS can't reach backend | Mixed content: see the HTTP vs HTTPS note in 2.6. |
