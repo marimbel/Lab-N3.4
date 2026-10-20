@@ -176,8 +176,9 @@ The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023
 | AWS region | `us-east-2` (Ohio) |
 | Application / environment | `smart-speech-coach` / `Smart-speech-coach-env` |
 | Platform | Node.js 24 running on 64bit Amazon Linux 2023 (single instance, free-tier preset) |
-| Backend URL | `http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com` |
-| Health check | `http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com/api/health` → `"runningOn":"AWS Elastic Beanstalk"` |
+| Backend URL | Elastic Beanstalk **Domain** (`http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com`; copy the real one from the environment overview page). Instance public IP: `http://52.14.97.242` (the IP changes if the instance is replaced, so use the Domain in the frontend) |
+| Health check | `http://52.14.97.242/api/health` → `{"status":"ok","service":"smart-speech-coach-backend","runningOn":"AWS Elastic Beanstalk"}` (verified 2026-10-20) |
+| Gemini check | `POST /api/askanything` `{"message":"How can Smart Speech Coach help me?"}` → 200 with a Gemini answer (verified 2026-10-20) |
 | Frontend | run locally (`npm run dev`, http://localhost:5173) with `VITE_SERVER_REMOTE=AWS` |
 | Deployed by / date | Marianna Belmares, 2026-10-15 |
 
