@@ -138,9 +138,9 @@ eb terminate smart-speech-coach-env   # DELETE the environment when finished so 
 ```
 
 ### 2.8 Deploy from the AWS Console (no EB CLI) — this is how we deployed
-1. Make a zip whose **root** contains `server.js`, `package.json`, `package-lock.json` and `Procfile`. Zip the files, not the `backend` folder, and leave out `node_modules` and `.env`.
+1. Make a zip whose **root** contains `server.js`, `package.json`, `package-lock.json`, `Procfile` and the `.platform/` folder (the nginx timeout fix). Zip the files, not the `backend` folder, and leave out `node_modules` and `.env`.
    - macOS / Linux: `cd backend && zip -r ../backend-eb.zip server.js package.json package-lock.json Procfile .platform`
-   - PowerShell: `cd backend; Compress-Archive -Path server.js,package.json,package-lock.json,Procfile -DestinationPath ..\backend-eb.zip`
+   - PowerShell: `cd backend; Compress-Archive -Path server.js,package.json,package-lock.json,Procfile,.platform -DestinationPath ..\backend-eb.zip`
 2. Console → **Elastic Beanstalk** → **Create application** → *Web server environment*.
 3. Platform: **Node.js** (Amazon Linux 2023). Application code: **Upload your code** → `backend-eb.zip`.
 4. Presets: **Single instance (free tier eligible)**.
@@ -176,8 +176,8 @@ The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023
 | AWS region | `us-east-2` (Ohio) |
 | Application / environment | `smart-speech-coach` / `Smart-speech-coach-env` |
 | Platform | Node.js 24 running on 64bit Amazon Linux 2023 (single instance, free-tier preset) |
-| Backend URL | `http://smart-speech-coach-env.eba-xxxxxxx.us-west-2.elasticbeanstalk.com` |
-| Health check | `http://smart-speech-coach-env.eba-xxxxxxx.us-west-2.elasticbeanstalk.com/api/health` → `"runningOn":"AWS Elastic Beanstalk"` |
+| Backend URL | `http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com` |
+| Health check | `http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com/api/health` → `"runningOn":"AWS Elastic Beanstalk"` |
 | Frontend | run locally (`npm run dev`, http://localhost:5173) with `VITE_SERVER_REMOTE=AWS` |
 | Deployed by / date | Marianna Belmares, 2026-10-15 |
 
