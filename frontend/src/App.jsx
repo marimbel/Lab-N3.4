@@ -26,13 +26,22 @@ function App() {
     Y: import.meta.env.VITE_SERVER_URL_REMOTE,
     AWS: import.meta.env.VITE_SERVER_URL_AWS,
   }
-  const serverUrl = serverUrls[serverRemote] ?? import.meta.env.VITE_SERVER_URL_LOCAL
+  //   SAME -> the backend that served this page (AWS Elastic Beanstalk serves
+  //           the built frontend and the /api routes from one URL), so fetch
+  //           uses relative paths like "/api/health" and no CORS is needed.
+  const sameOrigin = serverRemote === 'SAME'
+  const serverUrl = sameOrigin
+    ? ''
+    : serverUrls[serverRemote] ?? import.meta.env.VITE_SERVER_URL_LOCAL
+  const isConfigured = sameOrigin || Boolean(serverUrl)
+  // What to show the user as the backend address.
+  const serverLabel = sameOrigin ? window.location.origin : serverUrl
 
   // backendStatus describes whether the frontend can reach the backend.
   // It is filled in by the /api/health fetch below.
   // If no backend URL is configured, show that right away instead of checking.
   const [backendStatus, setBackendStatus] = useState(
-    serverUrl
+    isConfigured
       ? { state: 'checking', text: 'Checking backend connection...' }
       : {
           state: 'error',
@@ -44,7 +53,7 @@ function App() {
   // This proves the browser can reach the backend (e.g. the Google Cloud Run service)
   // before the user even asks a question.
   useEffect(() => {
-    if (!serverUrl) return
+    if (!isConfigured) return
 
     async function checkBackend() {
       try {
@@ -55,18 +64,18 @@ function App() {
         }
         setBackendStatus({
           state: 'ok',
-          text: `Connected to backend (${data.runningOn || 'unknown'}): ${serverUrl}`,
+          text: `Connected to backend (${data.runningOn || 'unknown'}): ${serverLabel}`,
         })
       } catch {
         setBackendStatus({
           state: 'error',
-          text: `Cannot reach backend at ${serverUrl}. Is it running, and is this site in allowedOrigins (CORS)?`,
+          text: `Cannot reach backend at ${serverLabel}. Is it running, and is this site in allowedOrigins (CORS)?`,
         })
       }
     }
 
     checkBackend()
-  }, [serverUrl])
+  }, [serverUrl, isConfigured, serverLabel])
 
 
   // This function runs when the user presses Enter in the form.
@@ -117,7 +126,7 @@ function App() {
       // "Failed to fetch" means the browser never got a response (wrong URL, backend down, or CORS).
       setAnswer(
         error.message === 'Failed to fetch'
-          ? `Could not reach the backend at ${serverUrl}.`
+          ? `Could not reach the backend at ${serverLabel}.`
           : error.message
       )
     } finally {

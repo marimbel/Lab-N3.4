@@ -2,6 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI } from '@google/genai';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Create the Express application. Express handles our backend routes.
 const app = express();
@@ -55,9 +58,20 @@ app.get('/api/health', (request, response) => {
 });
 
 // Visiting the bare Cloud Run URL in a browser shows this instead of "Cannot GET /".
-app.get('/', (request, response) => {
-  response.send('Smart Speech Coach backend is running. Try GET /api/health or POST /api/askanything.');
-});
+// If the built React frontend has been copied into backend/public (see README,
+// "Host the frontend on Elastic Beanstalk"), serve it from this same server.
+// Then one public URL gives you both the website and the /api routes.
+// Otherwise, visiting the bare URL shows a short text message.
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
+const hasFrontend = existsSync(path.join(publicDir, 'index.html'));
+
+if (hasFrontend) {
+  app.use(express.static(publicDir));
+} else {
+  app.get('/', (request, response) => {
+    response.send('Smart Speech Coach backend is running. Try GET /api/health or POST /api/askanything.');
+  });
+}
 
 // Ask Anything endpoint
 // This route receives a user's question from the frontend,
@@ -124,6 +138,13 @@ User question: ${message}`;
 });
 
 // Start the backend and print the local URL in the terminal.
+// Any other GET that isn't an /api route gets the React page (single-page app).
+if (hasFrontend) {
+  app.get(/^(?!\/api\/).*/, (request, response) => {
+    response.sendFile(path.join(publicDir, 'index.html'));
+  });
+}
+
 app.listen(port, () => {
   console.log(`Smart Speech Coach backend running on http://localhost:${port}`);
 });

@@ -35,3 +35,6 @@ backend/.env.aws
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
 *.zip
+
+# Built frontend copied in for Elastic Beanstalk (regenerate with the steps in README section 2.12)
+backend/public/

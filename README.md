@@ -9,8 +9,10 @@ This lab deploys the **same Node/Express + Gemini backend from [Lab N3.3](https:
 
 Based on the starter code at [grewe/SmartSpeechCoach](https://github.com/grewe/SmartSpeechCoach). AWS reference: [Deploying Node.js applications to Elastic Beanstalk](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/create_deploy_nodejs.html).
 
+Everything runs on AWS: the **same Elastic Beanstalk URL serves both the React website and the `/api` routes**, so nothing runs on localhost.
+
 ```
-Browser (React frontend, http://localhost:5173)
+Browser → http://<our-env>.elasticbeanstalk.com/   (React page, served by Express from backend/public)
    │  fetch GET  /api/health        → "Connected to backend (AWS Elastic Beanstalk)"
    │  fetch POST /api/askanything   → { "message": "..." }
    ▼
@@ -36,7 +38,9 @@ The backend code itself barely changed. It already reads `process.env.PORT`, whi
 | `backend/server.js` | `/api/health` reports `runningOn` from a `DEPLOY_PLATFORM` property (falls back to Cloud Run / local detection) | Cloud Run sets `K_SERVICE` automatically, but Elastic Beanstalk has no equivalent, so we set `DEPLOY_PLATFORM=AWS Elastic Beanstalk` ourselves. The frontend then shows which cloud it's talking to. |
 | `frontend/src/App.jsx` | `VITE_SERVER_REMOTE` accepts `AWS` (→ `VITE_SERVER_URL_AWS`) as well as `Y` (Cloud Run) and `N` (local) | Lets us switch the same frontend between the AWS and Google backends to compare them. |
 | `frontend/.env.example` | Added `VITE_SERVER_URL_AWS` | Same reason. |
-| `.gitignore` | Ignores `backend/.env.aws`, `.elasticbeanstalk/` files, `*.zip` | Keeps secrets and EB CLI local state out of Git. |
+| `.gitignore` | Ignores `backend/.env.aws`, `.elasticbeanstalk/` files, `*.zip`, `backend/public/` | Keeps secrets, EB CLI local state and build output out of Git. |
+| `backend/server.js` | If `backend/public/index.html` exists, Express serves the built React app (`express.static`) and sends `index.html` for any non-`/api` page | **The frontend is hosted on Elastic Beanstalk too, not on localhost.** One URL serves the page and the API. |
+| `frontend/src/App.jsx` | New `VITE_SERVER_REMOTE=SAME` mode: `fetch('/api/...')` with relative paths to whichever server served the page | Same origin means no CORS setup, and no "mixed content" problem (an HTTPS page such as Firebase can't call the HTTP-only EB URL). |
 
 Everything from Lab N3.3 is still here, so `gcloud run deploy` from `backend/` still works (see section 5).
 
@@ -179,15 +183,36 @@ The environment then launched on **Node.js 24 running on 64bit Amazon Linux 2023
 | Backend URL | Elastic Beanstalk **Domain** (`http://smart-speech-coach-env.eba-xxxxxxx.us-east-2.elasticbeanstalk.com`; copy the real one from the environment overview page). Instance public IP: `http://52.14.97.242` (the IP changes if the instance is replaced, so use the Domain in the frontend) |
 | Health check | `http://52.14.97.242/api/health` → `{"status":"ok","service":"smart-speech-coach-backend","runningOn":"AWS Elastic Beanstalk"}` (verified 2026-10-20) |
 | Gemini check | `POST /api/askanything` `{"message":"How can Smart Speech Coach help me?"}` → 200 with a Gemini answer (verified 2026-10-20) |
-| Frontend | run locally (`npm run dev`, http://localhost:5173) with `VITE_SERVER_REMOTE=AWS` |
+| Frontend | **Hosted on the same Elastic Beanstalk environment**: open `http://<Domain>/` (built with `VITE_SERVER_REMOTE=SAME`, section 2.12) |
 | Deployed by / date | Marianna Belmares, 2026-10-15 |
 
 ### 2.11 Demo steps (10/15 check)
 1. Show the environment in the Elastic Beanstalk console: Health **Ok**, Domain, Events log, **Configuration → Environment properties** (key hidden).
 2. Open `http://<domain>/api/health` → `"runningOn":"AWS Elastic Beanstalk"`.
-3. `cd frontend && npm run dev` → http://localhost:5173 shows **"Connected to backend (AWS Elastic Beanstalk)"** → ask a question and get a Gemini answer.
-4. Change `VITE_SERVER_REMOTE=Y` in `frontend/.env`, restart `npm run dev` → the same page now talks to the Cloud Run backend from Lab N3.3.
+3. Open `http://<domain>/` (no localhost) → the Smart Speech Coach page shows **"Connected to backend (AWS Elastic Beanstalk): http://<domain>"** → ask a question and get a Gemini answer.
+4. Show the browser DevTools **Network** tab: the page's `fetch` calls go to `http://<domain>/api/askanything`.
 5. Stop it: **Actions → Terminate environment** (or `eb terminate`). Refresh the domain to show it is gone.
+
+### 2.12 Host the frontend on Elastic Beanstalk (no localhost)
+The professor asked that the demo not run from localhost, so the built React app is deployed **inside** the backend bundle:
+
+1. Build the frontend in same-origin mode and copy it into `backend/public`:
+   ```
+   cd frontend
+   npm install
+   VITE_SERVER_REMOTE=SAME npm run build        # PowerShell: $env:VITE_SERVER_REMOTE="SAME"; npm.cmd run build
+   rm -rf ../backend/public && cp -r dist ../backend/public    # PowerShell: Remove-Item -Recurse -Force ..\backend\public -ErrorAction SilentlyContinue; Copy-Item -Recurse dist ..\backend\public
+   ```
+2. Zip the backend, **including `public/`**:
+   ```
+   cd ../backend
+   zip -r ../backend-eb.zip server.js package.json package-lock.json Procfile .platform public
+   ```
+   (PowerShell: `Compress-Archive -Path server.js,package.json,package-lock.json,Procfile,.platform,public -DestinationPath ..\backend-eb.zip`.) With the EB CLI, `eb deploy` uploads `backend/` including `public/`.
+3. Elastic Beanstalk console → **Environments → Smart-speech-coach-env → Upload and deploy** → choose `backend-eb.zip`, give a version label (e.g. `v2-with-frontend`) → **Deploy**. Wait for Health **Ok** (1–3 minutes).
+4. Open `http://<Domain>/`. The page loads from AWS and its `fetch()` calls go to `/api/...` on the same server.
+
+No `allowedOrigins` change is needed, because the page and API share one origin.
 
 ## 3. Comparison: Google Cloud Run vs. AWS Elastic Beanstalk
 
